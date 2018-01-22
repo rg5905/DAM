@@ -46,3 +46,10 @@ clean_text <- function(text){
   return(cleaned_text)
 }
 
+create_dtm <- function(text){
+
+  corpus <- Corpus(VectorSource(text))
+  DTM<-DocumentTermMatrix(corpus)
+  return(DTM)  
+}
+

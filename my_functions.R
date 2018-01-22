@@ -12,7 +12,7 @@ library(tidytext)
 require(tm) || install.packages("tm")
 library(tm)
 
-try(require(wordcould) || install.packages("wordcloud"))
+try(require(wordcloud) || install.packages("wordcloud"))
 library(wordcloud)
 
 try(require(tidyr) || install.packages("tidyr"))

@@ -153,8 +153,9 @@ build_wordcloud <- function(dtm){        # write within double quotes
 build_barchart <- function(dtm){        # write within double quotes
   # visualize the commonly used words using ggplot2.
   library(ggplot2)
-  
+  library(dplyr)
   tidy(dtm) %>%
+    ungroup(document) %>% 
     count(term, sort = TRUE) %>%
     filter(n > 20) %>%   # n is wordcount colname. 
     mutate(word = reorder(term, n)) %>%  # mutate() reorders columns & renames too
@@ -162,12 +163,10 @@ build_barchart <- function(dtm){        # write within double quotes
     geom_bar(stat = "identity") +
     xlab(NULL) +
     coord_flip()
+  
 }
 
 display_dtm <- function(dtm){        # write within double quotes
-  #Bar Chart  
-  build_barchart(dtm)
-  
   #Wordcloud
   build_wordcloud(dtm)
   
@@ -180,6 +179,9 @@ display_dtm <- function(dtm){        # write within double quotes
   
   #Call function
   distill.cog(adj.mat, 'Distilled COG - TF',  5,  5)
+  
+  #Bar Chart  
+  build_barchart(dtm)
   
   return(dtm) #Returning DTM for any further possible use
 

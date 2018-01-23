@@ -168,9 +168,6 @@ display_dtm <- function(dtm){        # write within double quotes
   #Wordcloud
   build_wordcloud(dtm)
   
-  #Bar Chart  
-  build_barchart(dtm)
-  
   #Co-occurence
   dtm1 = as.matrix(dtm)   # need it as a regular matrix for matrix ops like %*% to apply
   adj.mat = t(dtm1) %*% dtm1    # making a square symmatric term-term matrix 
@@ -180,6 +177,9 @@ display_dtm <- function(dtm){        # write within double quotes
   
   #Call function
   distill.cog(adj.mat, 'Distilled COG - TF',  5,  5)
+  
+  #Bar Chart  
+  build_barchart(dtm)
   
   return(dtm) #Returning DTM for any further possible use
 

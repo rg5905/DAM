@@ -165,6 +165,9 @@ build_barchart <- function(dtm){        # write within double quotes
 }
 
 display_dtm <- function(dtm){        # write within double quotes
+  #Bar Chart  
+  build_barchart(dtm)
+  
   #Wordcloud
   build_wordcloud(dtm)
   
@@ -177,9 +180,6 @@ display_dtm <- function(dtm){        # write within double quotes
   
   #Call function
   distill.cog(adj.mat, 'Distilled COG - TF',  5,  5)
-  
-  #Bar Chart  
-  build_barchart(dtm)
   
   return(dtm) #Returning DTM for any further possible use
 

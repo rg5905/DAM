@@ -23,22 +23,19 @@ require(tibble)
 
 
 #Funtion to clean a text corpus
-clean_text <- function(text){
-  
+clean_text <- function(text, user_stop_words=""){
+
   
   text  <-  gsub("<.*?>", " ", text)
   text <- tolower(text)   # Lowercase
-  # Remove everything that is not a number or letter (may want to keep more stuff in your actual analyses). 
+  # Remove everything that is not a number or letter
   text <- stringr::str_replace_all(text,"[^a-zA-Z\\s]", " ") # anything not alphabetical followed by a space, replace!
   # Shrink down to just one white space using '+' regex or for repeats >1
   text <- stringr::str_replace_all(text,"[\\s]+", " ") # collapse one or more spaces into one space.
   
   
-  textdf = data_frame(text = text)
   
   data(stop_words)
-  
-  user_stop_words<-c("sentences","paragraphs","other")
   
   stop_words_all<-rbind(stop_words,data.frame(word=user_stop_words, lexicon="USER"))
   
@@ -46,20 +43,80 @@ clean_text <- function(text){
   
   cleaned_text<- tm::removeWords(text, stop_words_all$word)
   
-  return(cleaned_text)
+  textdf = data_frame(docid=1:length(cleaned_text), textcontent = cleaned_text)
+  
+  return(textdf)
 }
 
-create_dtm <- function(text){
-
-  corpus <- Corpus(VectorSource(text))
-  DTM<-DocumentTermMatrix(corpus)
+create_dtm <- function(text,weighting_type="TF"){
+  text_tidy <- text %>%
+    unnest_tokens(word, textcontent) %>%
+    count(docid, word, sort = TRUE) %>%
+    ungroup()
+  
+  if(weighting_type=="TF"){
+    DTM = cast_dtm(data=text_tidy,document=docid,term=word,value=n)
+  } 
+  if(weighting_type=="IDF"){
+    DTM = cast_dtm(data=text_tidy,document=docid,term=word,value=n,weighting = tm::weightTfIdf)
+  } 
   return(DTM)  
 }
 
+
+
+#-----------------------------------------------------------#
+# A cleaned up or 'distilled' COG Plot            #
+#-----------------------------------------------------------#
+
+distill.cog = function(mat1, # input TCM ADJ MAT
+                       title, # title for the graph
+                       s,    # no. of central nodes
+                       k1){  # max no. of connections  
+  library(igraph)
+  a = colSums(mat1) # collect colsums into a vector obj a
+  b = order(-a)     # nice syntax for ordering vector in decr order  
+  
+  mat2 = mat1[b, b]     # order both rows and columns along vector b
+  
+  diag(mat2) =  0
+  
+  ## +++ go row by row and find top k adjacencies +++ ##
+  
+  wc = NULL
+  
+  for (i1 in 1:s){ 
+    thresh1 = mat2[i1,][order(-mat2[i1, ])[k1]]
+    mat2[i1, mat2[i1,] < thresh1] = 0   # neat. didn't need 2 use () in the subset here.
+    mat2[i1, mat2[i1,] > 0 ] = 1
+    word = names(mat2[i1, mat2[i1,] > 0])
+    mat2[(i1+1):nrow(mat2), match(word,colnames(mat2))] = 0
+    wc = c(wc,word)
+  } # i1 loop ends
+  
+  
+  mat3 = mat2[match(wc, colnames(mat2)), match(wc, colnames(mat2))]
+  ord = colnames(mat2)[which(!is.na(match(colnames(mat2), colnames(mat3))))]  # removed any NAs from the list
+  mat4 = mat3[match(ord, colnames(mat3)), match(ord, colnames(mat3))]
+  graph <- graph.adjacency(mat4, mode = "undirected", weighted=T)    # Create Network object
+  graph = simplify(graph) 
+  V(graph)$color[1:s] = "green"
+  V(graph)$color[(s+1):length(V(graph))] = "pink"
+  
+  graph = delete.vertices(graph, V(graph)[ degree(graph) == 0 ]) # delete singletons?
+  
+  plot(graph, 
+       layout = layout.kamada.kawai, 
+       main = title)
+  
+} # distill.cog func ends
+
+
+
 build_wordcloud <- function(dtm){        # write within double quotes
   require(wordcloud)
-  max.words1=200
-  min.freq=2
+  max.words1=100
+  min.freq=5
   title1="Word Cloud"
   if (ncol(dtm) > 20000){   # if dtm is overly large, break into chunks and solve
     
@@ -91,5 +148,43 @@ build_wordcloud <- function(dtm){        # write within double quotes
             colors = brewer.pal(8, "Dark2"))    # Plot results in a word cloud 
   title(sub = title1)     # title for the wordcloud display
   
+}  
+
+build_barchart <- function(dtm){        # write within double quotes
+  # visualize the commonly used words using ggplot2.
+  library(ggplot2)
+  
+  tidy(dtm) %>%
+    count(term, sort = TRUE) %>%
+    filter(n > 20) %>%   # n is wordcount colname. 
+    mutate(word = reorder(term, n)) %>%  # mutate() reorders columns & renames too
+    ggplot(aes(term, n)) +
+    geom_bar(stat = "identity") +
+    xlab(NULL) +
+    coord_flip()
+}
+
+display_dtm <- function(dtm){        # write within double quotes
+  #Wordcloud
+  build_wordcloud(dtm)
+  
+  #Bar Chart  
+  build_barchart(dtm)
+  
+  #Co-occurence
+  dtm1 = as.matrix(dtm)   # need it as a regular matrix for matrix ops like %*% to apply
+  adj.mat = t(dtm1) %*% dtm1    # making a square symmatric term-term matrix 
+  diag(adj.mat) = 0     # no self-references. So diag is 0.
+  a0 = order(apply(adj.mat, 2, sum), decreasing = T)   # order cols by descending colSum
+  adj.mat = as.matrix(adj.mat[a0[1:50], a0[1:50]])   # taking the top 50 rows and cols only
+  
+  #Call function
+  distill.cog(adj.mat, 'Distilled COG - TF',  5,  5)
+  
+  return(dtm) #Returning DTM for any further possible use
+
 } # func ends
+
+
+
 

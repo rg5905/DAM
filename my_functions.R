@@ -181,7 +181,7 @@ display_dtm <- function(dtm){        # write within double quotes
   distill.cog(adj.mat, 'Distilled COG - TF',  5,  5)
   
   #Bar Chart  
-  build_barchart(dtm)
+  print(build_barchart(dtm))
   
   return(dtm) #Returning DTM for any further possible use
 

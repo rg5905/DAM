@@ -21,6 +21,8 @@ library(tidyr)
 try(require(magrittr) || install.packages("magrittr"))
 library("magrittr")
 
+try(require(qdap) || install.packages("qdap")) 
+library(qdap)
 
 require(tibble)
 
@@ -41,8 +43,8 @@ clean_text <- function(text, user_stop_words=""){
   
   data(stop_words)
   
-  stop_words_all<-rbind(stop_words,data.frame(word=user_stop_words, lexicon="USER"))
-  
+  stop_words_all<-ifelse(is.na(user_stop_words),stop_words,rbind(stop_words,data.frame(word=user_stop_words, lexicon="USER")))  
+
   stop_words_all<-unique(stop_words_all)
   
   cleaned_text<- tm::removeWords(text, stop_words_all$word)
@@ -291,4 +293,53 @@ concordance.r <- function(text1,  # corpus
   return(list_df) } # func ends
 
 
+
+sentiment_an_bing <- function(text_input){
+  
+  require(dplyr)
+  require(tidytext)
+  require(tidyr)
+  require(ggplot2)
+  
+  bing <- get_sentiments("bing")   
+  
+  senti.bing <- text_input %>%
+    mutate(linenumber = row_number()) %>%   # build line num variable
+    ungroup() %>%
+    unnest_tokens(word, text) %>%
+    inner_join(bing) %>%
+    count(sentiment, index = linenumber %/% 1, sort = FALSE) %>%
+    mutate(method = "bing")    # creates a column with method name
+  
+  bing_df <- data.frame(senti.bing %>% spread(sentiment, n, fill = 0))
+  
+  bing_pol <- bing_df %>% 
+    mutate(polarity = (positive - negative)) %>%   #create variable polarity = pos - neg
+    arrange(desc(polarity), index)    # sort by polarity
+  print(ggplot(bing_pol, 
+               aes(index, polarity)) +
+          geom_bar(stat = "identity", show.legend = FALSE) +
+          labs(title = "Sentiment in the corpus",
+               x = "Document",  
+               y = "Sentiment")
+  )
+  
+  bing_word_counts <- text_input %>%
+    unnest_tokens(word, text) %>%
+    inner_join(bing) %>%
+    count(word, sentiment, sort = TRUE) %>%
+    ungroup()
+  
+  print(  bing_word_counts %>%
+            filter(n > 3) %>%
+            mutate(n = ifelse(sentiment == "negative", -n, n)) %>%
+            mutate(word = reorder(word, n)) %>%
+            ggplot(aes(word, n, fill = sentiment)) +
+            geom_bar(stat = "identity") +
+            theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+            xlab("Word") +
+            ylab("Contribution to sentiment")
+  )
+  return(bing_word_counts)
+}
 

@@ -343,3 +343,21 @@ sentiment_an_bing <- function(text_input){
   return(bing_word_counts)
 }
 
+
+get_nrc_sentiments<- function(text_input){
+  
+  nrc = get_sentiments("nrc")
+  senti.nrc = text_input %>%
+    mutate(linenumber = row_number()) %>%
+    ungroup() %>%
+    unnest_tokens(word, text) %>%
+    inner_join(get_sentiments("nrc")) %>%
+    count(sentiment, index = linenumber %/% 1, sort = FALSE) %>%  # %/% gives quotient
+    mutate(method = "nrc")
+  
+  # make a neat table out of the 8 emotion dimensions
+  a = data.frame(senti.nrc %>% spread(sentiment, n, fill = 0))
+  
+  return(a)  
+}
+

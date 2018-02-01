@@ -18,6 +18,10 @@ library(wordcloud)
 try(require(tidyr) || install.packages("tidyr"))
 library(tidyr)
 
+try(require(magrittr) || install.packages("magrittr"))
+library("magrittr")
+
+
 require(tibble)
 
 
@@ -154,14 +158,16 @@ build_barchart <- function(dtm){        # write within double quotes
   # visualize the commonly used words using ggplot2.
   library(ggplot2)
   library(dplyr)
-  tidy(dtm) %>%
+  
+  
+  tidytext::tidy(dtm) %>%
     ungroup(document) %>% 
     count(term, sort = TRUE) %>%
     filter(n > 20) %>%   # n is wordcount colname. 
-    mutate(word = reorder(term, n)) %>%  # mutate() reorders columns & renames too
+    mutate(term = reorder(term, n)) %>%  # mutate() reorders columns & renames too
     ggplot(aes(term, n)) +
     geom_bar(stat = "identity") +
-    xlab(NULL) +
+#    xlab(NULL) +
     coord_flip()
   
 }
@@ -183,10 +189,62 @@ display_dtm <- function(dtm){        # write within double quotes
   #Bar Chart  
   print(build_barchart(dtm))
   
-  return(dtm) #Returning DTM for any further possible use
 
 } # func ends
 
+
+
+
+bigram.collocation <- function(text1){   # text1 from readLines() is input
+  
+  require(magrittr)
+  require(tidytext)
+  require(dplyr)
+  require(tidyr)
+  
+  text1 = gsub('<.*?>', "", text1)   # drop html junk
+  
+  # create words df
+  text_df <- data_frame(text1) %>% 
+    unnest_tokens(word, text1) %>%
+    anti_join(stop_words) %>% 
+    count(word, sort = TRUE) #%>% 
+  text_df
+  
+  # create bigrams df
+  bigram_df <- data_frame(text1) %>% 
+    unnest_tokens(bigrams, text1, token = "ngrams", n = 2) %>%
+    count(bigrams, sort = TRUE) %>%
+    ungroup() %>%
+    
+    # separate & filter bigrams for stopwords
+    separate(bigrams, c("word1", "word2"), sep = " ") %>%
+    dplyr::filter(!(word1 %in% stop_words$word)) %>%
+    dplyr::filter(!(word2 %in% stop_words$word)) #%>%
+  
+  bigram_df              
+  
+  # create a merged df
+  new_df = bigram_df %>% mutate(k1 = 0) %>% mutate(k2 = 0) # %>%
+  
+  for (i1 in 1:nrow(bigram_df)){
+    
+    a0 = which(bigram_df$word1[i1] == text_df$word) 
+    new_df$k1[i1] = text_df$n[a0]
+    
+    a1 = which(bigram_df$word2[i1] == text_df$word) 
+    new_df$k2[i1] = text_df$n[a1]
+    
+  } # i1 loop ends
+  
+  new_df1 = new_df %>% filter(n > 1) %>% mutate(coll.ratio = (n*nrow(new_df))/(k1*k2)) %>%
+    filter(coll.ratio >= 1) %>%
+    unite(bigram_united, word1, word2) %>%
+    arrange(desc(coll.ratio)) %>% 
+    select(bigram_united, n, coll.ratio) 
+  
+  return(new_df1)
+}   # func ends
 
 
 
